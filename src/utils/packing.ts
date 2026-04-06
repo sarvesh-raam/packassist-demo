@@ -86,17 +86,13 @@ export function simulatePacking(trunk: TrunkDims, bags: { type: string; size: st
             continue;
         }
 
-        // Place it
-        const px = -trunk.l / 2 + curX + l / 2;
-        const py = -trunk.h / 2 + curY + h / 2;
-        const pz = -trunk.w / 2 + curZ + w / 2;
-
+        // Direct absolute positioning from corner [0,0,0]
         placed.push({
             id: bag.id,
             type: bag.type,
             size: bag.size,
             dims: bag.dims,
-            position: [px, py, pz],
+            position: [curX + l / 2, curY + h / 2, curZ + w / 2],
             color: BAG_COLORS[placed.length % BAG_COLORS.length],
         });
 

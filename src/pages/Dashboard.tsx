@@ -14,11 +14,19 @@ import { simulatePacking, PlacedBag, BoxDims } from '../utils/packing';
 // ----- 3D Components -----
 
 /** A single coloured box representing a bag */
-function BagBox({ dims, position, color }: { dims: BoxDims; position: [number, number, number]; color: string }) {
+function BagBox({ dims, position, color, trunkDims }: { dims: BoxDims; position: [number, number, number]; color: string; trunkDims: [number, number, number] }) {
     const [hovered, setHovered] = useState(false);
+    
+    // Position math: The algorithm gives position from [0, 0, 0] of the trunk.
+    // Three.js maps the trunk center to [0, 0, 0].
+    // So we subtract half the trunk size and add half the item size to align perfectly.
+    const posX = position[0] - trunkDims[0] / 2;
+    const posY = position[1] - trunkDims[1] / 2;
+    const posZ = position[2] - trunkDims[2] / 2;
+    
     return (
         <mesh
-            position={position}
+            position={[posX, posY, posZ]}
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
         >
@@ -224,13 +232,14 @@ export default function Dashboard() {
                                 {/* Trunk outline */}
                                 <TrunkWireframe dims={trunkDims} />
 
-                                {/* Placed bag boxes */}
+                                {/* Placed bag boxes rendered with direct world-space mapping */}
                                 {result.placed.map(bag => (
                                     <BagBox
                                         key={bag.id}
                                         dims={bag.dims}
                                         position={bag.position}
                                         color={bag.color}
+                                        trunkDims={trunkDims}
                                     />
                                 ))}
                             </Canvas>
