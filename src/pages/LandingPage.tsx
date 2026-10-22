@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 import { Target, Box, Zap } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -96,7 +96,7 @@ export default function LandingPage() {
     );
 }
 
-const getStyles = (theme: any, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
+const getStyles = (theme: ThemeColors, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
     container: {
         minHeight: '100vh',
         background: isDark ? '#000000' : theme.bg,

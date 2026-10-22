@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useAuth } from '../context/AuthContext';
 import { Car as CarIcon, ChevronRight, Box, Ruler } from 'lucide-react';
@@ -80,7 +80,7 @@ export default function CarSelection() {
     );
 }
 
-const getStyles = (theme: any, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
+const getStyles = (theme: ThemeColors, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
     container: { minHeight: '100vh', background: isDark ? '#000' : theme.bg, fontFamily: "'Google Sans','Roboto','Inter',sans-serif", display: 'flex', flexDirection: 'column' },
     mainContent: { flex: 1, maxWidth: '1000px', width: '100%', margin: '0 auto', padding: isMobile ? '40px 20px' : '60px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
     headerSection: { textAlign: 'center', marginBottom: isMobile ? '40px' : '60px', maxWidth: '600px' },

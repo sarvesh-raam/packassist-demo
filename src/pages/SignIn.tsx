@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 export default function SignIn() {
@@ -31,8 +31,8 @@ export default function SignIn() {
         try {
             await login(email, password);
             navigate('/cars');
-        } catch (err: any) {
-            const code = err?.code || '';
+        } catch (err) {
+            const code = (err as { code?: string })?.code ?? '';
             if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
                 setError('Invalid email or password.');
             } else if (code === 'auth/too-many-requests') {
@@ -51,8 +51,12 @@ export default function SignIn() {
         try {
             await signInWithGoogle();
             navigate('/cars');
-        } catch (err: any) {
-            setError('Google sign in failed. Please try again.');
+        } catch (err) {
+            const code = (err as { code?: string })?.code ?? '';
+            // Closing the popup is a user choice, not a failure
+            if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+                setError('Google sign in failed. Please try again.');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -168,7 +172,7 @@ export default function SignIn() {
     );
 }
 
-const getStyles = (theme: any, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
+const getStyles = (theme: ThemeColors, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
     container: { minHeight: '100vh', background: isDark ? '#000' : theme.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '16px' : '24px', fontFamily: "'Google Sans','Roboto','Inter',sans-serif", transition: 'background-color 0.3s' },
     card: { display: 'flex', flexDirection: isMobile ? 'column' : 'row', width: '100%', maxWidth: isMobile ? '400px' : '840px', background: theme.cardBg, borderRadius: '8px', padding: isMobile ? '32px 24px' : '48px 40px', gap: isMobile ? '32px' : '48px', border: isDark ? 'none' : `1px solid ${theme.border}`, boxShadow: theme.shadow, transition: 'background-color 0.3s', margin: isMobile ? '0 16px' : '0' },
     leftSection: { flex: '1', display: 'flex', flexDirection: 'column', minWidth: isMobile ? '100%' : '280px' },

@@ -1,4 +1,4 @@
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 
 interface LoadingAnimationProps {
     totalBags: number;
@@ -58,7 +58,7 @@ export default function LoadingAnimation({ totalBags, realTimeCount, realTimeMes
     );
 }
 
-const getStyles = (theme: any, _isDark: boolean): Record<string, React.CSSProperties> => ({
+const getStyles = (theme: ThemeColors, _isDark: boolean): Record<string, React.CSSProperties> => ({
     container: {
         position: 'fixed',
         top: 0,

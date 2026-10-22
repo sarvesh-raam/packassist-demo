@@ -122,6 +122,3 @@ export function useTheme() {
     }
     return context;
 }
-
-// Export themes for direct access if needed
-export { lightTheme, darkTheme };
