@@ -11,6 +11,8 @@ PackAssist plans how luggage fits into a car trunk. Pick a vehicle, add bags by 
 
 [Explore the Live Demo](https://packassist-demo.web.app)
 
+![PackAssist 3D packing result: 13 bags arranged inside an SUV trunk](docs/screenshot.png)
+
 ---
 
 ## Reading Guide
