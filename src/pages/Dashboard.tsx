@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Edges } from '@react-three/drei';
 import * as THREE from 'three';
@@ -7,6 +7,7 @@ import Header from '../components/Header';
 import LoadingAnimation from '../components/LoadingAnimation';
 import { Trash2, Plus, Minus, Play, Box, ChevronLeft, ChevronUp, ChevronDown, Maximize, Download, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { BAGS_DATA, CARS_DATA } from '../data/staticData';
 import { simulatePacking, PlacedBag, BoxDims } from '../utils/packing';
@@ -70,11 +71,21 @@ interface BagItem {
     dims?: BoxDims; // custom
 }
 
+const MAX_QUANTITY = 20;
+const MAX_CUSTOM_CM = 300;
+
 export default function Dashboard() {
     const location = useLocation();
-    const { car } = (location.state as any) || { car: 'Compact SUV' };
+    const navigate = useNavigate();
+    const car = (location.state as { car?: string } | null)?.car ?? 'Compact SUV';
     const { theme, isDark } = useTheme();
+    const { user, loading } = useAuth();
     const isMobile = useIsMobile();
+
+    // Redirect to sign in if not authenticated
+    useEffect(() => {
+        if (!loading && !user) navigate('/signin');
+    }, [user, loading, navigate]);
 
     // Resolve car trunk dims
     const carData = CARS_DATA.find(c => c.name === car) ?? CARS_DATA[0];
@@ -106,9 +117,26 @@ export default function Dashboard() {
         return Object.values(groups);
     }, [selectedBags]);
 
+    // Legend: one entry per colour (bag kind) with its placed count
+    const legend = useMemo(() => {
+        const entries: Record<string, { color: string; label: string; count: number }> = {};
+        result?.placed.forEach(bag => {
+            if (!entries[bag.color]) entries[bag.color] = { color: bag.color, label: `${bag.type} (${bag.size})`, count: 0 };
+            entries[bag.color].count++;
+        });
+        return Object.values(entries);
+    }, [result]);
+
+    const isCustom = selectedType === 'Custom Dimensions';
+    const customValid = (['l', 'b', 'h'] as const).every(d => {
+        const v = Number(customDims[d]);
+        return customDims[d].trim() !== '' && Number.isFinite(v) && v > 0 && v <= MAX_CUSTOM_CM;
+    });
+    const canAdd = !isCustom || customValid;
+
     // ---- Actions ----
     const handleAdd = () => {
-        if (!selectedType) return;
+        if (!selectedType || !canAdd) return;
         const newBags: BagItem[] = [];
         for (let i = 0; i < quantity; i++) {
             if (selectedType === 'Custom Dimensions') {
@@ -139,8 +167,8 @@ export default function Dashboard() {
         if (selectedBags.length === 0) return;
         setIsOptimizing(true);
 
-        // Simulate processing delay for UX effect
-        await new Promise(r => setTimeout(r, selectedBags.length * 300 + 800));
+        // Brief pause so the loading state is perceptible; packing itself is near-instant
+        await new Promise(r => setTimeout(r, 600));
 
         const bagInputs = selectedBags.map(bag => ({
             id: bag.id,
@@ -168,7 +196,7 @@ export default function Dashboard() {
             `Total Unplaced: ${result.unplaced.length}\n\n` +
             `ITEMS PLACED:\n` +
             result.placed.map((b, i) => `${i + 1}. ${b.type} (${b.size})`).join('\n') +
-            (result.unplaced.length > 0 ? `\n\nITEMS UNPLACED:\n` + result.unplaced.map((b, i) => `${i + 1}. ${b.type} - ${b.reason}`).join('\n') : '');
+            (result.unplaced.length > 0 ? `\n\nITEMS UNPLACED:\n` + result.unplaced.map((b, i) => `${i + 1}. ${b.type} (${b.size}) - ${b.reason}`).join('\n') : '');
 
         const blob = new Blob([report], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -264,12 +292,14 @@ export default function Dashboard() {
                             <h3 style={styles.cardTitle}>Packing Summary</h3>
 
                             {/* Color legend */}
-                            {result.placed.length > 0 && (
+                            {legend.length > 0 && (
                                 <div style={styles.legendWrap}>
-                                    {result.placed.map((bag, i) => (
-                                        <div key={i} style={styles.legendItem}>
-                                            <div style={{ ...styles.legendDot, background: bag.color }} />
-                                            <span style={styles.legendText}>{bag.type} ({bag.size})</span>
+                                    {legend.map(entry => (
+                                        <div key={entry.color} style={styles.legendItem}>
+                                            <div style={{ ...styles.legendDot, background: entry.color }} />
+                                            <span style={styles.legendText}>
+                                                {entry.label}{entry.count > 1 && ` ×${entry.count}`}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -313,7 +343,7 @@ export default function Dashboard() {
             <Header />
             <div style={styles.content}>
                 <div style={styles.pageHeader}>
-                    <button style={styles.backButton} onClick={() => window.history.back()}>
+                    <button style={styles.backButton} onClick={() => navigate('/cars')}>
                         <ChevronLeft size={20} /> Back to Vehicles
                     </button>
                     <div>
@@ -343,7 +373,7 @@ export default function Dashboard() {
                             </div>
 
                             {/* Size or custom dims */}
-                            {selectedType === 'Custom Dimensions' ? (
+                            {isCustom && (
                                 <div style={styles.dimsRow}>
                                     {(['l', 'b', 'h'] as const).map(d => (
                                         <div key={d} style={styles.dimInputWrapper}>
@@ -351,13 +381,19 @@ export default function Dashboard() {
                                             <input
                                                 style={styles.input}
                                                 type="number"
+                                                min={1}
+                                                max={MAX_CUSTOM_CM}
                                                 value={customDims[d]}
                                                 onChange={e => setCustomDims({ ...customDims, [d]: e.target.value })}
                                             />
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
+                            )}
+                            {isCustom && !customValid && (
+                                <p style={styles.inputError}>Enter each dimension between 1 and {MAX_CUSTOM_CM} cm.</p>
+                            )}
+                            {!isCustom && (
                                 <div style={styles.inputGroup}>
                                     <label style={styles.label}>Size</label>
                                     <div style={styles.chipGroup}>
@@ -380,15 +416,15 @@ export default function Dashboard() {
                             {/* Quantity + Add */}
                             <div style={styles.actionRow}>
                                 <div style={styles.qtyPill}>
-                                    <button style={styles.qtyBtn} onClick={() => setQuantity(Math.max(1, quantity - 1))}>
+                                    <button style={styles.qtyBtn} aria-label="Decrease quantity" onClick={() => setQuantity(Math.max(1, quantity - 1))}>
                                         <Minus size={16} />
                                     </button>
                                     <span style={styles.qtyValue}>{quantity}</span>
-                                    <button style={styles.qtyBtn} onClick={() => setQuantity(quantity + 1)}>
+                                    <button style={styles.qtyBtn} aria-label="Increase quantity" onClick={() => setQuantity(Math.min(MAX_QUANTITY, quantity + 1))}>
                                         <Plus size={16} />
                                     </button>
                                 </div>
-                                <button style={styles.addBtn} onClick={handleAdd}>
+                                <button style={{ ...styles.addBtn, ...(canAdd ? {} : styles.addBtnDisabled) }} onClick={handleAdd} disabled={!canAdd}>
                                     <Plus size={18} /> Add Item
                                 </button>
                             </div>
@@ -479,6 +515,8 @@ const getStyles = (theme: any, isDark: boolean, isMobile: boolean): Record<strin
     qtyBtn: { width: '36px', height: '36px', borderRadius: '50%', background: theme.accent, border: 'none', color: isDark ? '#202124' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     qtyValue: { color: theme.text, fontSize: '18px', fontWeight: '600', minWidth: '20px', textAlign: 'center' },
     addBtn: { flex: 1, height: '48px', background: theme.accent, color: isDark ? '#202124' : '#fff', border: 'none', borderRadius: '100px', fontSize: '15px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' },
+    addBtnDisabled: { background: theme.border, color: theme.textSecondary, cursor: 'not-allowed' },
+    inputError: { margin: '-12px 0 0 0', fontSize: '13px', color: theme.error },
     queueHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
     clearBtn: { background: 'transparent', border: 'none', color: theme.error, fontSize: '14px', fontWeight: '500', cursor: 'pointer' },
     queueList: { display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '400px', overflowY: 'auto' },

@@ -81,6 +81,13 @@ export function simulatePacking(trunk: TrunkDims, bags: { type: string; size: st
     const unplaced: { type: string; size: string; reason: string }[] = [];
     const boxes: Box[] = [];
     let points: [number, number, number][] = [[0, 0, 0]];
+    // One colour per distinct bag kind, so identical bags share a legend entry
+    const colorByKind = new Map<string, string>();
+    const colorFor = (bag: { type: string; size: string; dims: BoxDims }) => {
+        const key = `${bag.type}|${bag.size}|${bag.dims.l}|${bag.dims.w}|${bag.dims.h}`;
+        if (!colorByKind.has(key)) colorByKind.set(key, BAG_COLORS[colorByKind.size % BAG_COLORS.length]);
+        return colorByKind.get(key)!;
+    };
 
     // Sort bags by volume descending (largest first)
     const sorted = [...bags].sort((a, b) => {
@@ -134,7 +141,7 @@ export function simulatePacking(trunk: TrunkDims, bags: { type: string; size: st
             size: bag.size,
             dims: { l: best.l, w: best.w, h: best.h },
             position: [best.x + best.l / 2, best.y + best.h / 2, best.z + best.w / 2],
-            color: BAG_COLORS[placed.length % BAG_COLORS.length],
+            color: colorFor(bag),
         });
     }
 

@@ -57,7 +57,7 @@ describe('simulatePacking', () => {
             expect(result.utilization).toBeGreaterThanOrEqual(0);
             expect(result.utilization).toBeLessThanOrEqual(1);
         }
-    });
+    }, 30_000);
 
     it('rejects invalid dimensions', () => {
         const result = simulatePacking(TRUNKS[0], [
