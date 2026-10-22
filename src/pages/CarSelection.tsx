@@ -22,6 +22,12 @@ export default function CarSelection() {
         navigate('/dashboard', { state: { car: car.name } });
     };
 
+    const highlight = (el: HTMLElement, on: boolean) => {
+        el.style.transform = on ? 'translateY(-4px)' : 'none';
+        el.style.boxShadow = on ? theme.shadowMd : 'none';
+        el.style.borderColor = on ? theme.accent : theme.border;
+    };
+
     const styles = getStyles(theme, isDark, isMobile);
 
     return (
@@ -38,18 +44,18 @@ export default function CarSelection() {
                         <div
                             key={index}
                             id={`car-card-${index}`}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Select ${car.name}`}
                             style={styles.card}
                             onClick={() => handleCarSelect(car)}
-                            onMouseEnter={e => {
-                                e.currentTarget.style.transform = 'translateY(-4px)';
-                                e.currentTarget.style.boxShadow = theme.shadowMd ?? '0 8px 32px rgba(0,0,0,0.4)';
-                                e.currentTarget.style.borderColor = theme.accent;
+                            onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCarSelect(car); }
                             }}
-                            onMouseLeave={e => {
-                                e.currentTarget.style.transform = 'none';
-                                e.currentTarget.style.boxShadow = 'none';
-                                e.currentTarget.style.borderColor = theme.border;
-                            }}
+                            onMouseEnter={e => highlight(e.currentTarget, true)}
+                            onMouseLeave={e => highlight(e.currentTarget, false)}
+                            onFocus={e => highlight(e.currentTarget, true)}
+                            onBlur={e => highlight(e.currentTarget, false)}
                         >
                             <div style={styles.iconWrapper}>
                                 <CarIcon size={32} color={theme.accent} strokeWidth={1.5} />
@@ -87,7 +93,7 @@ const getStyles = (theme: ThemeColors, isDark: boolean, isMobile: boolean): Reco
     title: { fontSize: isMobile ? '32px' : '44px', fontWeight: '400', color: theme.text, marginBottom: '16px', letterSpacing: '-0.5px' },
     subtitle: { fontSize: '16px', color: theme.textSecondary, lineHeight: '1.5', fontWeight: '400' },
     grid: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(380px, 1fr))', gap: '24px', width: '100%' },
-    card: { background: isDark ? '#1a1a1c' : '#fff', border: `1px solid ${theme.border}`, borderRadius: '24px', padding: isMobile ? '24px' : '32px', display: 'flex', alignItems: 'flex-start', gap: isMobile ? '16px' : '24px', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', position: 'relative' },
+    card: { background: isDark ? '#1a1a1c' : '#fff', border: `1px solid ${theme.border}`, borderRadius: '24px', padding: isMobile ? '24px' : '32px', display: 'flex', alignItems: 'flex-start', gap: isMobile ? '16px' : '24px', cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4,0,0.2,1)', position: 'relative', outline: 'none' },
     iconWrapper: { width: isMobile ? '56px' : '64px', height: isMobile ? '56px' : '64px', borderRadius: '50%', background: isDark ? 'rgba(138,180,248,0.1)' : '#e8f0fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
     cardContent: { flex: 1 },
     carName: { fontSize: '20px', fontWeight: '500', color: theme.text, margin: '0 0 4px 0' },

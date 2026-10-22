@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 export default function Header() {
@@ -14,6 +14,14 @@ export default function Header() {
     const isMobile = useIsMobile();
 
     const isAuthPage = ['/', '/signin', '/signup'].includes(location.pathname);
+
+    // Escape closes the profile menu
+    useEffect(() => {
+        if (!showMenu) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowMenu(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [showMenu]);
 
     const handleLogout = async () => {
         await logout();
@@ -27,7 +35,7 @@ export default function Header() {
 
     const styles = {
         header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', background: isAuthPage ? 'transparent' : (isDark ? '#000' : theme.cardBg), position: 'relative' as const, zIndex: 50 },
-        brand: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' },
+        brand: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', background: 'transparent', border: 'none', padding: 0, font: 'inherit' },
         logoMark: { width: '32px', height: '32px', borderRadius: '8px', background: theme.accent, color: isDark ? '#202124' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '13px', letterSpacing: '1px' },
         appName: { fontSize: '18px', color: theme.text, fontWeight: '600', letterSpacing: '-0.4px' },
         userSection: { position: 'relative' as const },
@@ -41,15 +49,22 @@ export default function Header() {
 
     return (
         <header style={styles.header}>
-            <div style={styles.brand} onClick={() => navigate(user ? '/cars' : '/')}>
+            <button type="button" style={styles.brand} aria-label="PackAssist home" onClick={() => navigate(user ? '/cars' : '/')}>
                 <div style={styles.logoMark}>PA</div>
                 {!isMobile && <span style={styles.appName}>PackAssist</span>}
                 <div style={{ background: 'rgba(138, 180, 248, 0.1)', border: `1px solid ${theme.border}`, borderRadius: '4px', padding: '2px 8px', fontSize: '10px', color: theme.accent, fontWeight: '700', marginLeft: '8px', textTransform: 'uppercase' }}>Portfolio Demo</div>
-            </div>
+            </button>
 
             {user && !isAuthPage ? (
-                <div style={styles.userSection} onClick={() => setShowMenu(!showMenu)}>
-                    <button style={styles.profileBtn}>
+                <div style={styles.userSection}>
+                    <button
+                        type="button"
+                        style={styles.profileBtn}
+                        onClick={() => setShowMenu(!showMenu)}
+                        aria-haspopup="menu"
+                        aria-expanded={showMenu}
+                        aria-label="Account menu"
+                    >
                         <div style={styles.avatar}>{initials}</div>
                         {!isMobile && <span style={styles.emailText}>{user.displayName || user.email}</span>}
                         <ChevronDown size={14} color={theme.textSecondary} style={{ transform: showMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
@@ -57,11 +72,13 @@ export default function Header() {
 
                     {showMenu && (
                         <>
-                            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} onClick={e => { e.stopPropagation(); setShowMenu(false); }} />
-                            <div style={styles.dropdown}>
+                            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} onClick={() => setShowMenu(false)} />
+                            <div style={styles.dropdown} role="menu">
                                 <button
+                                    type="button"
+                                    role="menuitem"
                                     style={styles.menuItem}
-                                    onClick={e => { e.stopPropagation(); handleLogout(); }}
+                                    onClick={handleLogout}
                                     onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#f1f3f4'}
                                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                                 >

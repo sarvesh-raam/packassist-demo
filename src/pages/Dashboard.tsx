@@ -53,6 +53,14 @@ export default function Dashboard() {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
+    // Escape exits the fullscreen 3D view
+    useEffect(() => {
+        if (!isFullscreen) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isFullscreen]);
+
     // ---- Grouping util ----
     const groupedBags = useMemo(() => {
         const groups: Record<string, BagItem & { count: number; ids: string[] }> = {};
@@ -199,6 +207,7 @@ export default function Dashboard() {
                                 style={styles.fullscreenBtn}
                                 onClick={() => setIsFullscreen(!isFullscreen)}
                                 title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                             >
                                 {isFullscreen ? <X size={20} /> : <Maximize size={20} />}
                             </button>
@@ -236,12 +245,17 @@ export default function Dashboard() {
                                 { key: 'unplaced', label: `Unplaced (${result.unplaced.length})`, color: theme.error, items: result.unplaced.map(b => `${b.type} – ${b.reason}`) },
                             ].map(sec => (
                                 <div key={sec.key} style={styles.summaryItem}>
-                                    <div style={styles.statRow} onClick={() => toggleSection(sec.key)}>
+                                    <button
+                                        type="button"
+                                        style={styles.statRow}
+                                        onClick={() => toggleSection(sec.key)}
+                                        aria-expanded={!!expandedSections[sec.key]}
+                                    >
                                         <span style={{ color: sec.color }}>{sec.label}</span>
-                                        <button style={styles.expandBtn}>
+                                        <span style={styles.expandBtn} aria-hidden="true">
                                             {expandedSections[sec.key] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                        </button>
-                                    </div>
+                                        </span>
+                                    </button>
                                     {expandedSections[sec.key] && (
                                         <div style={styles.expandedList}>
                                             {sec.items.map((item, i) => (
@@ -326,6 +340,7 @@ export default function Dashboard() {
                                             <button
                                                 key={size}
                                                 onClick={() => setSelectedSize(size)}
+                                                aria-pressed={selectedSize === size}
                                                 style={selectedSize === size ? styles.chipActive : styles.chip}
                                             >
                                                 {size}
@@ -380,7 +395,7 @@ export default function Dashboard() {
                                                 {group.count > 1 && <strong> ×{group.count}</strong>}
                                             </span>
                                         </div>
-                                        <button style={styles.removeBtn} onClick={() => removeGroup(group.ids)}>
+                                        <button style={styles.removeBtn} aria-label={`Remove ${group.type} ${group.size}`} onClick={() => removeGroup(group.ids)}>
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -472,8 +487,8 @@ const getStyles = (theme: ThemeColors, isDark: boolean, isMobile: boolean): Reco
     legendDot: { width: '12px', height: '12px', borderRadius: '3px', flexShrink: 0 },
     legendText: { fontSize: '12px', color: theme.textSecondary },
     summaryItem: { marginBottom: '16px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px' },
-    statRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '4px 0' },
-    expandBtn: { background: 'transparent', border: 'none', color: theme.textSecondary, cursor: 'pointer', padding: 0 },
+    statRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '4px 0', width: '100%', background: 'transparent', border: 'none', font: 'inherit', textAlign: 'left' },
+    expandBtn: { display: 'flex', color: theme.textSecondary },
     expandedList: { marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' },
     listItem: { fontSize: '13px', color: theme.text, padding: '8px 12px', background: isDark ? '#1a1a1c' : theme.bg, borderRadius: '8px' },
     modifyBtn: { width: '100%', height: '48px', marginTop: '24px', borderRadius: '100px', background: theme.accent, border: 'none', color: isDark ? '#202124' : '#fff', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
