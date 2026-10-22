@@ -1,67 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Edges } from '@react-three/drei';
-import * as THREE from 'three';
 import Header from '../components/Header';
 import LoadingAnimation from '../components/LoadingAnimation';
 import { Trash2, Plus, Minus, Play, Box, ChevronLeft, ChevronUp, ChevronDown, Maximize, Download, X } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, ThemeColors } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { BAGS_DATA, CARS_DATA } from '../data/staticData';
 import { simulatePacking, PlacedBag, BoxDims } from '../utils/packing';
 
-// ----- 3D Components -----
-
-/** A single coloured box representing a bag */
-function BagBox({ dims, position, color }: { dims: BoxDims; position: [number, number, number]; color: string }) {
-    const [hovered, setHovered] = useState(false);
-    
-    return (
-        <mesh
-            position={position}
-            onPointerOver={() => setHovered(true)}
-            onPointerOut={() => setHovered(false)}
-        >
-            <boxGeometry args={[dims.l, dims.h, dims.w]} />
-            <meshStandardMaterial
-                color={hovered ? '#ffffff' : color}
-                opacity={hovered ? 0.95 : 0.85}
-                transparent
-                metalness={0.1}
-                roughness={0.6}
-            />
-            <Edges scale={1.002} renderOrder={1} threshold={10}>
-                <lineBasicMaterial color={color} transparent opacity={0.5} />
-            </Edges>
-        </mesh>
-    );
-}
-
-/** Wireframe trunk outline */
-function TrunkWireframe({ dims }: { dims: [number, number, number] }) {
-    return (
-        <mesh position={[dims[0] / 2, dims[1] / 2, dims[2] / 2]}>
-            <boxGeometry args={dims} />
-            <meshStandardMaterial
-                color="#8ab4f8"
-                wireframe={false}
-                transparent
-                opacity={0.04}
-                side={THREE.BackSide}
-            />
-            <Edges scale={1.0} threshold={1}>
-                <lineBasicMaterial color="#8ab4f8" transparent opacity={0.5} />
-            </Edges>
-        </mesh>
-    );
-}
-
-// ---- Grid floor helper ----
-function GridFloor({ size }: { size: number }) {
-    return <gridHelper args={[size * 2, 20, '#333', '#222']} position={[0, 0, 0]} />;
-}
+// three.js is heavy; load the 3D viewer only when results are shown
+const TrunkScene = lazy(() => import('../components/TrunkScene'));
 
 // ----- Interfaces -----
 interface BagItem {
@@ -89,7 +38,6 @@ export default function Dashboard() {
 
     // Resolve car trunk dims
     const carData = CARS_DATA.find(c => c.name === car) ?? CARS_DATA[0];
-    const trunkDims: [number, number, number] = [carData.trunkDims[0], carData.trunkDims[2], carData.trunkDims[1]]; // [L,H,W] for Three.js
 
     // Bag selection
     const [selectedType, setSelectedType] = useState<string>(Object.keys(BAGS_DATA)[0]);
@@ -239,35 +187,12 @@ export default function Dashboard() {
                     <div style={styles.resultsLayout}>
                         {/* 3D Viewer */}
                         <div style={isFullscreen ? styles.visualizationCardFullscreen : styles.visualizationCard}>
-                            <Canvas
-                                shadows
-                                camera={{ position: [carData.trunkDims[0] * 2.5, carData.trunkDims[2] * 2.5, carData.trunkDims[1] * 2.5], fov: 45 }}
-                                style={{ background: '#0d1117', width: '100%', height: '100%' }}
-                            >
-                                <ambientLight intensity={0.6} />
-                                <pointLight position={[2, 3, 2]} intensity={1.5} castShadow />
-                                <pointLight position={[-2, 2, -2]} intensity={0.6} />
-                                <OrbitControls 
-                                    makeDefault 
-                                    enablePan 
-                                    enableZoom 
-                                    target={[carData.trunkDims[0] / 2, carData.trunkDims[2] / 2, carData.trunkDims[1] / 2]}
+                            <Suspense fallback={<div style={styles.sceneLoading}>Loading 3D view…</div>}>
+                                <TrunkScene
+                                    trunk={[carData.trunkDims[0], carData.trunkDims[1], carData.trunkDims[2]]}
+                                    placed={result.placed}
                                 />
-                                <GridFloor size={Math.max(...carData.trunkDims)} />
-
-                                {/* Trunk outline */}
-                                <TrunkWireframe dims={trunkDims} />
-
-                                {/* Placed bag boxes rendered with 1:1 world-space mapping */}
-                                {result.placed.map(bag => (
-                                    <BagBox
-                                        key={bag.id}
-                                        dims={bag.dims}
-                                        position={bag.position}
-                                        color={bag.color}
-                                    />
-                                ))}
-                            </Canvas>
+                            </Suspense>
 
                             {/* Fullscreen Button */}
                             <button
@@ -489,7 +414,7 @@ export default function Dashboard() {
 }
 
 // ---- Styles ----
-const getStyles = (theme: any, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
+const getStyles = (theme: ThemeColors, isDark: boolean, isMobile: boolean): Record<string, React.CSSProperties> => ({
     container: { minHeight: '100vh', background: isDark ? '#000' : theme.bg, fontFamily: "'Google Sans','Roboto','Inter',sans-serif", display: 'flex', flexDirection: 'column', paddingBottom: '120px' },
     content: { maxWidth: '1200px', width: '100%', margin: '0 auto', padding: isMobile ? '24px 20px' : '40px 24px', flex: 1, display: 'flex', flexDirection: 'column' },
     contentScrollable: { maxWidth: '1400px', width: '100%', margin: '0 auto', padding: isMobile ? '16px' : '32px 24px', display: 'flex', flexDirection: 'column' },
@@ -535,6 +460,7 @@ const getStyles = (theme: any, isDark: boolean, isMobile: boolean): Record<strin
     resultsLayout: { display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 380px', gap: isMobile ? '24px' : '32px' },
     visualizationCard: { height: isMobile ? '400px' : '580px', borderRadius: '24px', overflow: 'hidden', position: 'relative', border: `1px solid ${theme.border}` },
     visualizationCardFullscreen: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: '#0d1117' },
+    sceneLoading: { width: '100%', height: '100%', background: '#0d1117', color: '#9aa0a6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' },
     fullscreenBtn: { position: 'absolute', top: '16px', right: '16px', borderRadius: '50%', width: '44px', height: '44px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)', zIndex: 100 },
     utilOverlay: { position: 'absolute', bottom: '16px', left: '16px', right: '16px', background: 'rgba(0,0,0,0.7)', borderRadius: '12px', padding: '10px 16px', backdropFilter: 'blur(8px)', zIndex: 90 },
     utilLabel: { fontSize: '13px', color: '#fff', display: 'block', marginBottom: '6px' },

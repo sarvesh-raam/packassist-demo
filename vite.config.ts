@@ -6,11 +6,9 @@ export default defineConfig({
     plugins: [react()],
     server: {
         port: 5173,
-        proxy: {
-            '/auth': 'http://127.0.0.1:8000',
-            '/optimize': 'http://127.0.0.1:8000',
-            '/bags': 'http://127.0.0.1:8000',
-            '/cars': 'http://127.0.0.1:8000'
-        }
-    }
+    },
+    build: {
+        // The lazily loaded three.js viewer chunk is ~900 kB on its own
+        chunkSizeWarningLimit: 1000,
+    },
 })
