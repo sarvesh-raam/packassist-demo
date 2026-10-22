@@ -13,7 +13,7 @@ export default function LandingPage() {
         {
             icon: <Target size={32} color={theme.accent} />,
             title: 'Smart Optimization',
-            description: 'AI-powered algorithm finds the perfect arrangement for your luggage',
+            description: 'A 3D packing algorithm tries every orientation to find a tight, stable arrangement',
         },
         {
             icon: <Box size={32} color={theme.accent} />,
@@ -40,7 +40,7 @@ export default function LandingPage() {
                         Optimize your trunk space
                     </h1>
                     <p style={styles.heroSubtitle}>
-                        Smart packing solution for your vehicle. Powered by AI.
+                        Plan how your luggage fits before you load the car.
                     </p>
                     <div style={styles.ctaContainer}>
                         <button style={styles.primaryButton} onClick={() => navigate('/signup')}>
@@ -80,7 +80,7 @@ export default function LandingPage() {
                         <div style={styles.stepArrow}>→</div>
                         <div style={styles.step}>
                             <div style={styles.stepNumber}>2</div>
-                            <p style={styles.stepText}>AI optimizes</p>
+                            <p style={styles.stepText}>Optimize the fit</p>
                         </div>
                         <div style={styles.stepArrow}>→</div>
                         <div style={styles.step}>

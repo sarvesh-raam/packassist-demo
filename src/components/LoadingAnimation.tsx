@@ -26,7 +26,7 @@ export default function LoadingAnimation({ totalBags, realTimeCount, realTimeMes
 
                 <h2 style={styles.title}>Optimizing Arrangement</h2>
                 <p style={styles.subtitle}>
-                    {realTimeMessage || 'AI is calculating the perfect fit for your trunk...'}
+                    {realTimeMessage || 'Calculating the best fit for your trunk...'}
                 </p>
 
                 <div style={styles.progressContainer}>
