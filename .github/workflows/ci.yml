@@ -22,6 +22,9 @@ jobs:
     - name: Install dependencies
       run: npm install --no-audit --no-fund
 
+    - name: Run tests
+      run: npm test
+
     - name: Run build check
       run: npm run build
       env:

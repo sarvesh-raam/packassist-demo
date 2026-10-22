@@ -1,5 +1,6 @@
 // Client-side 3D bin-packing simulation (demo, no backend required)
-// Uses a simple guillotine/shelf algorithm to place boxes inside the trunk
+// Uses an extreme-point heuristic: each bag is tried in every orientation at every
+// candidate corner, and the lowest valid, supported placement wins.
 
 export interface BoxDims {
     l: number; // meters
@@ -17,8 +18,8 @@ export interface PlacedBag {
     id: string;
     type: string;
     size: string;
-    dims: BoxDims;            // actual placed dims
-    position: [number, number, number]; // center position in trunk-space (meters)
+    dims: BoxDims;            // actual placed dims (after rotation)
+    position: [number, number, number]; // center position in trunk-space (meters): [x along l, y along h, z along w]
     color: string;
 }
 
@@ -34,10 +35,52 @@ const BAG_COLORS = [
     '#26A69A', '#FFA726', '#8D6E63', '#78909C', '#EC407A',
 ];
 
-/** Greedy layer-by-layer packing */
+const EPS = 1e-9;
+// Fraction of a bag's base that must rest on the floor or on other bags
+const MIN_SUPPORT = 0.7;
+
+interface Box {
+    x: number; y: number; z: number; // min corner
+    l: number; h: number; w: number;
+}
+
+function orientations({ l, w, h }: BoxDims): BoxDims[] {
+    const all: BoxDims[] = [
+        { l, w, h }, { l: w, w: l, h },
+        { l, w: h, h: w }, { l: h, w: l, h: w },
+        { l: w, w: h, h: l }, { l: h, w, h: l },
+    ];
+    // Drop duplicates for bags with equal sides
+    return all.filter((o, i) => all.findIndex(p => p.l === o.l && p.w === o.w && p.h === o.h) === i);
+}
+
+function overlaps(a: Box, b: Box): boolean {
+    return a.x < b.x + b.l - EPS && b.x < a.x + a.l - EPS
+        && a.y < b.y + b.h - EPS && b.y < a.y + a.h - EPS
+        && a.z < b.z + b.w - EPS && b.z < a.z + a.w - EPS;
+}
+
+function supportedArea(c: Box, boxes: Box[]): number {
+    if (c.y < EPS) return c.l * c.w;
+    let area = 0;
+    for (const b of boxes) {
+        if (Math.abs(b.y + b.h - c.y) > EPS) continue;
+        const dx = Math.min(c.x + c.l, b.x + b.l) - Math.max(c.x, b.x);
+        const dz = Math.min(c.z + c.w, b.z + b.w) - Math.max(c.z, b.z);
+        if (dx > 0 && dz > 0) area += dx * dz;
+    }
+    return area;
+}
+
+const isValidDims = ({ l, w, h }: BoxDims) =>
+    [l, w, h].every(v => Number.isFinite(v) && v > 0);
+
+/** Greedy extreme-point packing with rotation and support checks */
 export function simulatePacking(trunk: TrunkDims, bags: { type: string; size: string; dims: BoxDims; id: string }[]): PackResult {
     const placed: PlacedBag[] = [];
     const unplaced: { type: string; size: string; reason: string }[] = [];
+    const boxes: Box[] = [];
+    let points: [number, number, number][] = [[0, 0, 0]];
 
     // Sort bags by volume descending (largest first)
     const sorted = [...bags].sort((a, b) => {
@@ -46,59 +89,53 @@ export function simulatePacking(trunk: TrunkDims, bags: { type: string; size: st
         return vb - va;
     });
 
-    // Simple bottom-up layer packing
-    let curX = 0;
-    let curY = 0; // floor up
-    let curZ = 0;
-    let layerH = 0; // max height in current row
-    let rowD = 0;   // depth of current layer
-
     for (const bag of sorted) {
-        const { l, w, h } = bag.dims;
+        if (!isValidDims(bag.dims)) {
+            unplaced.push({ type: bag.type, size: bag.size, reason: 'Invalid dimensions' });
+            continue;
+        }
 
-        // Check if bag fits in trunk at all
-        if (l > trunk.l || w > trunk.w || h > trunk.h) {
+        const fitting = orientations(bag.dims).filter(o =>
+            o.l <= trunk.l + EPS && o.w <= trunk.w + EPS && o.h <= trunk.h + EPS);
+        if (fitting.length === 0) {
             unplaced.push({ type: bag.type, size: bag.size, reason: 'Too large for trunk' });
             continue;
         }
 
-        // Try to fit in current row
-        if (curX + l <= trunk.l) {
-            // Fits in current row
-            if (curZ + w > trunk.w) {
-                // Start new depth layer
-                curY += layerH;
-                curX = 0;
-                curZ = 0;
-                layerH = 0;
-                rowD = 0;
+        // Prefer the lowest placement, then the one closest to the back/left corner
+        let best: Box | null = null;
+        for (const [x, y, z] of points) {
+            for (const o of fitting) {
+                const c: Box = { x, y, z, l: o.l, h: o.h, w: o.w };
+                if (x + o.l > trunk.l + EPS || y + o.h > trunk.h + EPS || z + o.w > trunk.w + EPS) continue;
+                if (best && (y > best.y + EPS || (Math.abs(y - best.y) <= EPS && (x > best.x + EPS || (Math.abs(x - best.x) <= EPS && z >= best.z - EPS))))) continue;
+                if (boxes.some(b => overlaps(c, b))) continue;
+                if (supportedArea(c, boxes) < MIN_SUPPORT * o.l * o.w - EPS) continue;
+                best = c;
             }
-        } else {
-            // New row
-            curX = 0;
-            curZ += rowD;
-            rowD = 0;
-            layerH = 0;
         }
 
-        if (curY + h > trunk.h) {
+        if (!best) {
             unplaced.push({ type: bag.type, size: bag.size, reason: 'Not enough space' });
             continue;
         }
 
-        // Direct absolute positioning from corner [0,0,0]
+        boxes.push(best);
+        points = points.filter(([x, y, z]) => !(x === best.x && y === best.y && z === best.z));
+        points.push(
+            [best.x + best.l, best.y, best.z],
+            [best.x, best.y + best.h, best.z],
+            [best.x, best.y, best.z + best.w],
+        );
+
         placed.push({
             id: bag.id,
             type: bag.type,
             size: bag.size,
-            dims: bag.dims,
-            position: [curX + l / 2, curY + h / 2, curZ + w / 2],
+            dims: { l: best.l, w: best.w, h: best.h },
+            position: [best.x + best.l / 2, best.y + best.h / 2, best.z + best.w / 2],
             color: BAG_COLORS[placed.length % BAG_COLORS.length],
         });
-
-        curX += l;
-        if (h > layerH) layerH = h;
-        if (w > rowD) rowD = w;
     }
 
     const trunkVol = trunk.l * trunk.w * trunk.h;
