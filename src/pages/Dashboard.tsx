@@ -14,19 +14,12 @@ import { simulatePacking, PlacedBag, BoxDims } from '../utils/packing';
 // ----- 3D Components -----
 
 /** A single coloured box representing a bag */
-function BagBox({ dims, position, color, trunkDims }: { dims: BoxDims; position: [number, number, number]; color: string; trunkDims: [number, number, number] }) {
+function BagBox({ dims, position, color }: { dims: BoxDims; position: [number, number, number]; color: string }) {
     const [hovered, setHovered] = useState(false);
-    
-    // Position math: The algorithm gives position from [0, 0, 0] of the trunk.
-    // Three.js maps the trunk center to [0, 0, 0].
-    // So we subtract half the trunk size and add half the item size to align perfectly.
-    const posX = position[0] - trunkDims[0] / 2;
-    const posY = position[1] - trunkDims[1] / 2;
-    const posZ = position[2] - trunkDims[2] / 2;
     
     return (
         <mesh
-            position={[posX, posY, posZ]}
+            position={position}
             onPointerOver={() => setHovered(true)}
             onPointerOut={() => setHovered(false)}
         >
@@ -48,7 +41,7 @@ function BagBox({ dims, position, color, trunkDims }: { dims: BoxDims; position:
 /** Wireframe trunk outline */
 function TrunkWireframe({ dims }: { dims: [number, number, number] }) {
     return (
-        <mesh>
+        <mesh position={[dims[0] / 2, dims[1] / 2, dims[2] / 2]}>
             <boxGeometry args={dims} />
             <meshStandardMaterial
                 color="#8ab4f8"
@@ -226,20 +219,24 @@ export default function Dashboard() {
                                 <ambientLight intensity={0.6} />
                                 <pointLight position={[2, 3, 2]} intensity={1.5} castShadow />
                                 <pointLight position={[-2, 2, -2]} intensity={0.6} />
-                                <OrbitControls makeDefault enablePan enableZoom />
+                                <OrbitControls 
+                                    makeDefault 
+                                    enablePan 
+                                    enableZoom 
+                                    target={[carData.trunkDims[0] / 2, carData.trunkDims[2] / 2, carData.trunkDims[1] / 2]}
+                                />
                                 <GridFloor size={Math.max(...carData.trunkDims)} />
 
                                 {/* Trunk outline */}
                                 <TrunkWireframe dims={trunkDims} />
 
-                                {/* Placed bag boxes rendered with direct world-space mapping */}
+                                {/* Placed bag boxes rendered with 1:1 world-space mapping */}
                                 {result.placed.map(bag => (
                                     <BagBox
                                         key={bag.id}
                                         dims={bag.dims}
                                         position={bag.position}
                                         color={bag.color}
-                                        trunkDims={trunkDims}
                                     />
                                 ))}
                             </Canvas>
